@@ -32,7 +32,9 @@ resource "aws_lb" "external" {
 
   name     = format("%s-%s-external", var.service, var.environment)
   internal = false #tfsec:ignore:AWS005
+  load_balancer_type = "network"
   subnets  = var.aws_public_subnet_ids
+
 
   security_groups = [aws_security_group.external-lb.id]
 
