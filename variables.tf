@@ -348,7 +348,7 @@ variable "health_check_healthy_threshold" {
   type        = string
 
   # Terraform default is 5
-  default = 5
+  default = 3
 }
 
 variable "health_check_interval" {
@@ -356,7 +356,7 @@ variable "health_check_interval" {
   type        = string
 
   # Terraform default is 30
-  default = 5
+  default = 30
 }
 
 variable "health_check_matcher" {
@@ -371,7 +371,7 @@ variable "health_check_timeout" {
   type        = string
 
   # Terraform default is 5
-  default = 3
+  default = 6
 }
 
 variable "health_check_unhealthy_threshold" {
@@ -379,7 +379,7 @@ variable "health_check_unhealthy_threshold" {
   type        = string
 
   # Terraform default is 2
-  default = 2
+  default = 3
 }
 
 variable "idle_timeout" {

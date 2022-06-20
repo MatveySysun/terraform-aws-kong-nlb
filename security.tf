@@ -118,8 +118,8 @@ resource "aws_security_group_rule" "proxy-ingress-external-lb" {
   from_port = 8000
   to_port   = 8000
   protocol  = "tcp"
-
-  source_security_group_id = aws_security_group.external-lb.id
+  # source_security_group_id = aws_security_group.external-lb.id
+  cidr_blocks = ["10.201.0.0/16"]
 }
 
 resource "aws_security_group_rule" "admin-ingress-external-lb" {
@@ -130,34 +130,34 @@ resource "aws_security_group_rule" "admin-ingress-external-lb" {
   from_port = 8001
   to_port   = 8001
   protocol  = "tcp"
-
-  source_security_group_id = aws_security_group.external-lb.id
+  # source_security_group_id = aws_security_group.external-lb.id
+  cidr_blocks = ["10.201.0.0/16"]
 }
 
 # Internal load balancer access
-resource "aws_security_group_rule" "proxy-ingress-internal-lb" {
-  security_group_id = aws_security_group.kong.id
-  description       = "Kong proxy ingress internal lb"
-
-  type      = "ingress"
-  from_port = 8000
-  to_port   = 8000
-  protocol  = "tcp"
-
-  source_security_group_id = aws_security_group.internal-lb.id
-}
-
-resource "aws_security_group_rule" "admin-ingress-internal-lb" {
-  security_group_id = aws_security_group.kong.id
-  description       = "Kong admin ingress internal lb"
-
-  type      = "ingress"
-  from_port = 8001
-  to_port   = 8001
-  protocol  = "tcp"
-
-  source_security_group_id = aws_security_group.internal-lb.id
-}
+# resource "aws_security_group_rule" "proxy-ingress-internal-lb" {
+#   security_group_id = aws_security_group.kong.id
+#   description       = "Kong proxy ingress internal lb"
+#
+#   type      = "ingress"
+#   from_port = 8000
+#   to_port   = 8000
+#   protocol  = "tcp"
+#
+#   source_security_group_id = aws_security_group.internal-lb.id
+# }
+#
+# resource "aws_security_group_rule" "admin-ingress-internal-lb" {
+#   security_group_id = aws_security_group.kong.id
+#   description       = "Kong admin ingress internal lb"
+#
+#   type      = "ingress"
+#   from_port = 8001
+#   to_port   = 8001
+#   protocol  = "tcp"
+#
+#   source_security_group_id = aws_security_group.internal-lb.id
+# }
 
 resource "aws_security_group_rule" "manager-ingress-internal-lb" {
   count = var.enable_ee ? 1 : 0

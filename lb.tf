@@ -2,17 +2,19 @@
 resource "aws_lb_target_group" "external" {
   count = var.enable_external_lb ? 1 : 0
 
-  name     = format("%s-%s-external", var.service, var.environment)
-  port     = 8000
-  protocol = "HTTP"
+  name = format("%s-%s-external", var.service, var.environment)
+  port = 8000
+  # protocol = "HTTP"
+  protocol = "TCP"
   vpc_id   = var.vpc_id
 
   health_check {
-    healthy_threshold   = var.health_check_healthy_threshold
-    interval            = var.health_check_interval
-    path                = "/status"
-    port                = 8000
-    timeout             = var.health_check_timeout
+    healthy_threshold = var.health_check_healthy_threshold
+    interval          = var.health_check_interval
+    # path                = "/status"
+    protocol = "TCP"
+    port     = 8000
+    # timeout             = var.health_check_timeout
     unhealthy_threshold = var.health_check_unhealthy_threshold
   }
 
@@ -30,13 +32,13 @@ resource "aws_lb_target_group" "external" {
 resource "aws_lb" "external" {
   count = var.enable_external_lb ? 1 : 0
 
-  name     = format("%s-%s-external", var.service, var.environment)
-  internal = false #tfsec:ignore:AWS005
+  name               = format("%s-%s-external", var.service, var.environment)
+  internal           = false #tfsec:ignore:AWS005
   load_balancer_type = "network"
-  subnets  = var.aws_public_subnet_ids
+  subnets            = var.aws_public_subnet_ids
 
 
-  security_groups = [aws_security_group.external-lb.id]
+  # security_groups = [aws_security_group.external-lb.id]
 
   enable_deletion_protection = var.enable_deletion_protection
   idle_timeout               = var.idle_timeout
@@ -70,66 +72,72 @@ resource "aws_lb_listener" "external-https" {
 
   load_balancer_arn = aws_lb.external[0].arn
   port              = "443"
-  protocol          = "HTTPS"
+  # protocol          = "HTTPS"
+  protocol = "TLS"
 
   ssl_policy      = var.ssl_policy
   certificate_arn = var.ssl_cert_external_arn
 
   default_action {
-    type = "fixed-response"
-
-    fixed_response {
-      content_type = "text/plain"
-      message_body = "Forbidden"
-      status_code  = "403"
-    }
-  }
-}
-
-resource "aws_lb_listener_rule" "deny_paths_and_methods" {
-  count        = var.enable_external_lb && (length(var.external_lb_deny_paths) > 0 || length(var.external_lb_deny_methods) > 0) ? 1 : 0
-  listener_arn = aws_lb_listener.external-https[0].arn
-  priority     = 10
-
-  action {
-    type = "fixed-response"
-
-    fixed_response {
-      content_type = "text/plain"
-      message_body = "Forbidden"
-      status_code  = "403"
-    }
-  }
-
-  condition {
-    path_pattern {
-      values = var.external_lb_deny_paths
-    }
-  }
-
-  condition {
-    http_request_method {
-      values = var.external_lb_deny_methods
-    }
-  }
-}
-
-resource "aws_lb_listener_rule" "external-routing" {
-  count = var.enable_external_lb ? 1 : 0
-
-  listener_arn = aws_lb_listener.external-https[0].arn
-  priority     = 20
-
-  action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.external[0].arn
   }
-  condition {
-    host_header {
-      values = [var.ssl_cert_admin_domain]
-    }
-  }
 }
+#   default_action {
+#     type = "fixed-response"
+#
+#     fixed_response {
+#       content_type = "text/plain"
+#       message_body = "Forbidden"
+#       status_code  = "403"
+#     }
+#   }
+# }
+
+# resource "aws_lb_listener_rule" "deny_paths_and_methods" {
+#   count        = var.enable_external_lb && (length(var.external_lb_deny_paths) > 0 || length(var.external_lb_deny_methods) > 0) ? 1 : 0
+#   listener_arn = aws_lb_listener.external-https[0].arn
+#   priority     = 10
+#
+#   action {
+#     type = "fixed-response"
+#
+#     fixed_response {
+#       content_type = "text/plain"
+#       message_body = "Forbidden"
+#       status_code  = "403"
+#     }
+#   }
+#
+#   condition {
+#     path_pattern {
+#       values = var.external_lb_deny_paths
+#     }
+#   }
+#
+#   condition {
+#     http_request_method {
+#       values = var.external_lb_deny_methods
+#     }
+#   }
+# }
+#
+# resource "aws_lb_listener_rule" "external-routing" {
+#   count = var.enable_external_lb ? 1 : 0
+#
+#   listener_arn = aws_lb_listener.external-https[0].arn
+#   priority     = 20
+#
+#   action {
+#     type             = "forward"
+#     target_group_arn = aws_lb_target_group.external[0].arn
+#   }
+#   condition {
+#     host_header {
+#       values = [var.ssl_cert_admin_domain]
+#     }
+#   }
+# }
 
 
 
@@ -138,18 +146,24 @@ resource "aws_lb_listener" "external-http" {
 
   load_balancer_arn = aws_lb.external[0].arn
   port              = "80"
-  protocol          = "HTTP"
+  # protocol          = "HTTP"
+  protocol = "TCP"
 
   default_action {
-    type = "redirect"
-
-    redirect {
-      port        = "443"
-      protocol    = "HTTPS"
-      status_code = "HTTP_301"
-    }
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.external[0].arn
   }
 }
+#   default_action {
+#     type = "redirect"
+#
+#     redirect {
+#       port        = "443"
+#       protocol    = "HTTPS"
+#       status_code = "HTTP_301"
+#     }
+#   }
+# }
 
 # Internal
 resource "aws_lb_target_group" "internal" {
