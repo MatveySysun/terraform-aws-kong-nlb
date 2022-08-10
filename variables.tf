@@ -139,6 +139,14 @@ variable "portal_host" {
   default = "default"
 }
 
+variable "orch_host" {
+  description = "Orchestrator hostname"
+  type        = string
+
+  default = "default"
+}
+
+
 # Required tags
 variable "description" {
   description = "Resource description tag"
@@ -281,7 +289,8 @@ variable "ce_pkg" {
   description = "Url for Community Edition package matching the OS distro"
   type        = string
 
-  default = "https://download.konghq.com/gateway-2.x-ubuntu-focal/pool/all/k/kong/kong_2.3.3_amd64.deb"
+  # default = "https://download.konghq.com/gateway-2.x-ubuntu-focal/pool/all/k/kong/kong_2.3.3_amd64.deb"
+  default = "https://download.konghq.com/gateway-2.x-ubuntu-focal/pool/all/k/kong/kong_2.8.0_amd64.deb"
 }
 
 # Load Balancer settings
@@ -441,7 +450,16 @@ variable "response_time_avg" {
   default = 1000
 }
 
+
+
 # Datastore settings
+variable "enable_rds" {
+  description = "Boolean to enable rds"
+  type        = string
+
+  default = "true"
+}
+
 variable "enable_aurora" {
   description = "Boolean to enable Aurora"
   type        = string

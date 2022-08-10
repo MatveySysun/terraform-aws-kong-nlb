@@ -2,25 +2,54 @@
 resource "aws_lb_target_group" "external" {
   count = var.enable_external_lb ? 1 : 0
 
-  name = format("%s-%s-external", var.service, var.environment)
+  name = format("%s-%s-external-8000", var.service, var.environment)
   port = 8000
   # protocol = "HTTP"
   protocol = "TCP"
   vpc_id   = var.vpc_id
 
   health_check {
-    healthy_threshold = var.health_check_healthy_threshold
-    interval          = var.health_check_interval
-    # path                = "/status"
-    protocol = "TCP"
-    port     = 8000
-    # timeout             = var.health_check_timeout
+    healthy_threshold   = var.health_check_healthy_threshold
+    interval            = var.health_check_interval
+    path                = "/status"
+    protocol            = "HTTP"
+    port                = 8000
+    timeout             = var.health_check_timeout
     unhealthy_threshold = var.health_check_unhealthy_threshold
   }
 
   tags = merge(
     {
       "Name"        = format("%s-%s-external", var.service, var.environment),
+      "Environment" = var.environment,
+      "Description" = var.description,
+      "Service"     = var.service,
+    },
+    var.tags
+  )
+}
+
+resource "aws_lb_target_group" "admin" {
+  count = var.enable_external_lb ? 1 : 0
+
+  name     = format("%s-%s-admin-8001", var.service, var.environment)
+  port     = 8001
+  protocol = "TCP"
+  vpc_id   = var.vpc_id
+
+  health_check {
+    healthy_threshold   = var.health_check_healthy_threshold
+    interval            = var.health_check_interval
+    path                = "/status"
+    protocol            = "HTTP"
+    port                = 8000
+    timeout             = var.health_check_timeout
+    unhealthy_threshold = var.health_check_unhealthy_threshold
+  }
+
+  tags = merge(
+    {
+      "Name"        = format("%s-%s-admin", var.service, var.environment),
       "Environment" = var.environment,
       "Description" = var.description,
       "Service"     = var.service,
@@ -71,7 +100,7 @@ resource "aws_lb_listener" "external-https" {
   count = var.enable_external_lb ? 1 : 0
 
   load_balancer_arn = aws_lb.external[0].arn
-  port              = "443"
+  port              = 443
   # protocol          = "HTTPS"
   protocol = "TLS"
 
@@ -81,6 +110,22 @@ resource "aws_lb_listener" "external-https" {
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.external[0].arn
+  }
+}
+
+resource "aws_lb_listener" "admin" {
+  count = var.enable_external_lb ? 1 : 0
+
+  load_balancer_arn = aws_lb.external[0].arn
+  port              = 8444
+  protocol          = "TLS"
+
+  ssl_policy      = var.ssl_policy
+  certificate_arn = var.ssl_cert_internal_arn
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.admin[0].arn
   }
 }
 #   default_action {
@@ -141,19 +186,19 @@ resource "aws_lb_listener" "external-https" {
 
 
 
-resource "aws_lb_listener" "external-http" {
-  count = var.enable_external_lb ? 1 : 0
-
-  load_balancer_arn = aws_lb.external[0].arn
-  port              = "80"
-  # protocol          = "HTTP"
-  protocol = "TCP"
-
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.external[0].arn
-  }
-}
+# resource "aws_lb_listener" "external-http" {
+#   count = var.enable_external_lb ? 1 : 0
+#
+#   load_balancer_arn = aws_lb.external[0].arn
+#   port              = "80"
+#   # protocol          = "HTTP"
+#   protocol = "TCP"
+#
+#   default_action {
+#     type             = "forward"
+#     target_group_arn = aws_lb_target_group.external[0].arn
+#   }
+# }
 #   default_action {
 #     type = "redirect"
 #
@@ -194,33 +239,33 @@ resource "aws_lb_target_group" "internal" {
   )
 }
 
-resource "aws_lb_target_group" "admin" {
-  count = var.enable_ee ? 1 : 0
-
-  name     = format("%s-%s-admin", var.service, var.environment)
-  port     = 8001
-  protocol = "HTTP"
-  vpc_id   = var.vpc_id
-
-  health_check {
-    healthy_threshold   = var.health_check_healthy_threshold
-    interval            = var.health_check_interval
-    path                = "/status"
-    port                = 8000
-    timeout             = var.health_check_timeout
-    unhealthy_threshold = var.health_check_unhealthy_threshold
-  }
-
-  tags = merge(
-    {
-      "Name"        = format("%s-%s-admin", var.service, var.environment),
-      "Environment" = var.environment,
-      "Description" = var.description,
-      "Service"     = var.service,
-    },
-    var.tags
-  )
-}
+# resource "aws_lb_target_group" "admin" {
+#   count = var.enable_ee ? 1 : 0
+#
+#   name     = format("%s-%s-admin", var.service, var.environment)
+#   port     = 8001
+#   protocol = "HTTP"
+#   vpc_id   = var.vpc_id
+#
+#   health_check {
+#     healthy_threshold   = var.health_check_healthy_threshold
+#     interval            = var.health_check_interval
+#     path                = "/status"
+#     port                = 8000
+#     timeout             = var.health_check_timeout
+#     unhealthy_threshold = var.health_check_unhealthy_threshold
+#   }
+#
+#   tags = merge(
+#     {
+#       "Name"        = format("%s-%s-admin", var.service, var.environment),
+#       "Environment" = var.environment,
+#       "Description" = var.description,
+#       "Service"     = var.service,
+#     },
+#     var.tags
+#   )
+# }
 
 resource "aws_lb_target_group" "manager" {
   count = var.enable_ee ? 1 : 0
@@ -363,21 +408,21 @@ resource "aws_lb_listener" "internal-https" {
   }
 }
 
-resource "aws_lb_listener" "admin" {
-  count = var.enable_ee ? 1 : 0
-
-  load_balancer_arn = aws_lb.internal[0].arn
-  port              = 8444
-  protocol          = "HTTPS"
-
-  ssl_policy      = var.ssl_policy
-  certificate_arn = var.ssl_cert_internal_arn
-
-  default_action {
-    target_group_arn = aws_lb_target_group.admin[0].arn
-    type             = "forward"
-  }
-}
+# resource "aws_lb_listener" "admin" {
+#   count = var.enable_ee ? 1 : 0
+#
+#   load_balancer_arn = aws_lb.internal[0].arn
+#   port              = 8444
+#   protocol          = "HTTPS"
+#
+#   ssl_policy      = var.ssl_policy
+#   certificate_arn = var.ssl_cert_internal_arn
+#
+#   default_action {
+#     target_group_arn = aws_lb_target_group.admin[0].arn
+#     type             = "forward"
+#   }
+# }
 
 resource "aws_lb_listener" "manager" {
   count = var.enable_ee ? 1 : 0

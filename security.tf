@@ -119,19 +119,31 @@ resource "aws_security_group_rule" "proxy-ingress-external-lb" {
   to_port   = 8000
   protocol  = "tcp"
   # source_security_group_id = aws_security_group.external-lb.id
-  cidr_blocks = ["10.201.0.0/16"]
+  cidr_blocks = ["0.0.0.0/0"]
 }
 
 resource "aws_security_group_rule" "admin-ingress-external-lb" {
   security_group_id = aws_security_group.kong.id
   description       = "Kong admin ingress external lb"
 
+  type                     = "ingress"
+  from_port                = 8001
+  to_port                  = 8001
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.external-lb.id
+  # cidr_blocks = ["10.201.0.0/16"]
+}
+
+resource "aws_security_group_rule" "ssh-ingress-kong" {
+  security_group_id = aws_security_group.kong.id
+  description       = "SSH"
+
   type      = "ingress"
-  from_port = 8001
-  to_port   = 8001
+  from_port = 22
+  to_port   = 22
   protocol  = "tcp"
   # source_security_group_id = aws_security_group.external-lb.id
-  cidr_blocks = ["10.201.0.0/16"]
+  cidr_blocks = var.bastion_cidr_blocks
 }
 
 # Internal load balancer access

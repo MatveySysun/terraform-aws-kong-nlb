@@ -1,5 +1,6 @@
 resource "aws_db_instance" "kong" {
-  count      = local.enable_rds ? 1 : 0
+  #  count      = local.enable_rds ? 1 : 0
+  count      = var.enable_rds ? 1 : 0
   identifier = format("%s-%s", var.service, var.environment)
 
   engine            = "postgres"
@@ -37,7 +38,8 @@ resource "aws_db_instance" "kong" {
 }
 
 resource "aws_db_parameter_group" "kong" {
-  count = var.db_instance_count > 0 ? 1 : 0
+  #count = var.db_instance_count > 0 ? 1 : 0
+  count = var.enable_rds ? 1 : 0
 
   name        = format("%s-%s", var.service, var.environment)
   family      = var.db_family

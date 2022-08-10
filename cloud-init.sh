@@ -57,55 +57,43 @@ else
 fi
 
 # Setup database
-echo "Setting up Kong database"
-PGPASSWORD=$(aws_get_parameter "db/password/master")
-DB_HOST=$(aws_get_parameter "db/host")
-DB_NAME=$(aws_get_parameter "db/name")
-DB_PASSWORD=$(aws_get_parameter "db/password")
-export PGPASSWORD
 
-RESULT=$(psql --host $DB_HOST --username root \
-    --tuples-only --no-align postgres \
-    <<EOF
-SELECT 1 FROM pg_roles WHERE rolname='${DB_USER}'
-EOF
-)
-
-if [ $? != 0 ]; then
-    echo "Error: Database connection failed, please configure manually"
-    exit 1
-fi
-
-echo $RESULT | grep -q 1
-if [ $? != 0 ]; then
-    psql --host $DB_HOST --username root postgres <<EOF
-CREATE USER ${DB_USER} WITH PASSWORD '$DB_PASSWORD';
-GRANT ${DB_USER} TO root;
-CREATE DATABASE $DB_NAME OWNER = ${DB_USER};
-EOF
-fi
-unset PGPASSWORD
+# echo "Setting up Kong database"
+# PGPASSWORD=$(aws_get_parameter "db/password/master")
+# DB_HOST=$(aws_get_parameter "db/host")
+# DB_NAME=$(aws_get_parameter "db/name")
+# DB_PASSWORD=$(aws_get_parameter "db/password")
+# export PGPASSWORD
+#
+# RESULT=$(psql --host $DB_HOST --username root \
+#     --tuples-only --no-align postgres \
+#     <<EOF
+# SELECT 1 FROM pg_roles WHERE rolname='${DB_USER}'
+# EOF
+# )
+#
+# if [ $? != 0 ]; then
+#     echo "Error: Database connection failed, please configure manually"
+#     exit 1
+# fi
+#
+# echo $RESULT | grep -q 1
+# if [ $? != 0 ]; then
+#     psql --host $DB_HOST --username root postgres <<EOF
+# CREATE USER ${DB_USER} WITH PASSWORD '$DB_PASSWORD';
+# GRANT ${DB_USER} TO root;
+# CREATE DATABASE $DB_NAME OWNER = ${DB_USER};
+# EOF
+# fi
+# unset PGPASSWORD
 
 # Setup Configuration file
 cat <<EOF > /etc/kong/kong.conf
-# kong.conf, Kong configuration file
-# Written by Dennis Kelly <dennisk@zillowgroup.com>
-# Updated by Dennis Kelly <dennis.kelly@konghq.com>
-#
-# 2020-01-23: Support for EE Kong Manager Auth
-# 2019-09-30: Support for 1.x releases and Dev Portal
-# 2018-03-13: Support for 0.12 and load balancing
-# 2017-06-20: Initial release
-#
-# Notes:
-#   - See kong.conf.default for further information
+# PATH: /etc/kong/kong.conf
 
-# Database settings
-database = postgres 
-pg_host = $DB_HOST
-pg_user = ${DB_USER}
-pg_password = $DB_PASSWORD
-pg_database = $DB_NAME
+database = off
+
+declarative_config = kong.yml
 
 # Load balancer headers
 real_ip_header = X-Forwarded-For
@@ -134,8 +122,130 @@ nginx_http_log_format=combined_with_perf_data '\$remote_addr - \$remote_user [\$
 nginx_proxy_access_log=logs/access_timing.log combined_with_perf_data
 
 EOF
+
 chmod 640 /etc/kong/kong.conf
 chgrp kong /etc/kong/kong.conf
+
+cat <<EOF > /etc/kong/kong.yml
+_format_version: "1.1"
+
+services:
+- connect_timeout: 60000
+  host: 127.0.0.1
+  name: kong-admin-api
+  port: 8001
+  protocol: http
+  read_timeout: 60000
+  retries: 5
+  write_timeout: 60000
+  routes:
+  - hosts:
+    - '*.saage.io'
+    name: kong-admin-route
+    paths:
+    - /kong-admin-api
+    path_handling: v0
+    preserve_host: false
+    protocols:
+    - http
+    - https
+    regex_priority: 0
+    strip_path: true
+    https_redirect_status_code: 426
+    request_buffering: true
+    response_buffering: true
+
+
+- connect_timeout: 60000
+  host: ${ORCH_HOST}
+  name: orchestrator-healthcheck
+  path: /health
+  port: 8085
+  protocol: http
+  read_timeout: 60000
+  retries: 5
+  write_timeout: 60000
+  routes:
+  - name: orchestrator-healthcheck
+    paths:
+    - /health
+    path_handling: v0
+    preserve_host: false
+    protocols:
+    - http
+    regex_priority: 0
+    strip_path: true
+    https_redirect_status_code: 426
+    request_buffering: true
+    response_buffering: true
+
+- connect_timeout: 60000
+  host: localhost
+  name: loadbalancer-healthcheck
+  path: /status
+  port: 8001
+  protocol: http
+  read_timeout: 60000
+  retries: 5
+  write_timeout: 60000
+  routes:
+  - name: loadbalancer-healthcheck
+    methods:
+    - HEAD
+    - GET
+    paths:
+    - /status
+    path_handling: v0
+    preserve_host: false
+    protocols:
+    - http
+    - https
+    regex_priority: 0
+    strip_path: true
+    https_redirect_status_code: 426
+    request_buffering: true
+    response_buffering: true
+
+
+- connect_timeout: 60000
+  host: ${ORCH_HOST}
+  name: orchestrator
+  path: /
+  port: 8085
+  protocol: http
+  read_timeout: 60000
+  retries: 5
+  write_timeout: 60000
+  routes:
+  - name: orchestrator
+    paths:
+    - /
+    path_handling: v0
+    preserve_host: false
+    protocols:
+    - http
+    regex_priority: 0
+    strip_path: true
+    https_redirect_status_code: 426
+    request_buffering: true
+    response_buffering: true
+plugins:
+- name: basic-auth
+  service: orchestrator
+  config:
+    hide_credentials: false
+  enabled: true
+
+consumers:
+- username: user
+  basicauth_credentials:
+  - consumer: user
+    username: saage-orchestrator
+    password: saage-orchestrator
+
+EOF
+chmod 640 /etc/kong/kong.yml
+chgrp kong /etc/kong/kong.yml
 
 if [ "$EE_LICENSE" != "placeholder" ]; then
     cat <<EOF >> /etc/kong/kong.conf
@@ -174,7 +284,7 @@ echo "Initializing Kong"
 if [ "$EE_LICENSE" != "placeholder" ]; then
     ADMIN_TOKEN=$(aws_get_parameter "ee/admin/token")
     sudo -u kong KONG_PASSWORD=$ADMIN_TOKEN kong migrations bootstrap
-else 
+else
     sudo -u kong kong migrations bootstrap
 fi
 
@@ -323,7 +433,7 @@ fi
 
 if [ "$EE_LICENSE" != "placeholder" ]; then
     echo "Configuring enterprise edition settings"
-    
+
     # Monitor role, endpoints, user, for healthcheck
     curl -s -X GET -I http://localhost:8001/rbac/roles/monitor | grep -q "200 OK"
     if [ $? != 0 ]; then
